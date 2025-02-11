@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Density Heatmap</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
+    <style>
+        .neighborhood {
+            stroke: #000;
+            stroke-width: 0.5px;
+        }
+
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1#title {
+            text-align: center;
+            margin-top: 20px;
+            color: #d1d1d1;
+        }
+
+        #block {
+            margin: 20px;
+            padding: 20px;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+        }
+
+        #desc {
+            margin-bottom: 20px;
+            color: #b0b0b0;
+        }
+
+        .maps {
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .barcharts {
+            display: flex;
+            justify-content: center;
+        }
+
+        #treepoobar {
+            margin-top: 20px;
+            background-color: #2c2c2c;
+            border: 5px solid #333;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+        }
+
+        svg {
+            background-color: #2c2c2c;
+            border: 5px solid #333;
+            border-radius: 8px;
+        }
+
+        .graphs {
+            display: flex;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 id="title">
+        Are We Fertilizing San Francisco Trees with Our Poop? 🌳💩
+    </h1>
+    <div id="block">
+        <p id="desc">
+            We've all seen the news about San Francisco and its poop problem. Along with it came a multitude of
+            poop maps marking instances of human or animal waste found on the streets. Almost all of these maps point 
+            to the severity of the problem in certain neighborhoods. <b>But what if we could learn something more 
+            from this data and issue than just the severity of it?</b> Perhaps all this poop is contributing to the 
+            growth of trees in certain neighborhoods? Or maybe we can extract the public pooping preferences of humans 
+            and pets in San Francisco? Let's explore this through a few visualizations of trees in San Francisco and 
+            cases of poop found in the city:<br><br>
+
+            First, lets take a look at the <b>overall health of trees</b> in each neighborhood quantified by their <b>average 
+            diameter at breast height (DBH)</b> and compare it to the <b>cases of poop</b> found in each neighborhood:
+        </p>
+        <div class="maps">
+            <svg id="treevis"></svg>
+            <svg id="poovis"></svg>
+        </div>
+
+        <p id="desc">
+            The map evidently shows that there is barely any correlation between the average DBH of trees and the cases
+            of poop found in each neighborhood. But, to make sure of this let's take a closer look at the top 10 
+            neighborhoods with the highest average DBH and compare it to their corresponding number of cases of poop 
+            found in the streets:
+        </p>
+        <div class="barcharts">
+            <svg id="treepoobar"></svg>
+        </div>
+        <p id="desc">
+            We can see that as average DBH decreases, the distribution of the cases of poop on the streets seem random at
+            best. Now, we can conclusively say that there is absolutely no correlation between these two variables in San
+            Francisco.
+        </p>
+    </div>
+    <div id="block">
+        <p id="desc">
+            Perhaps we should look at another aspect of the tree data. Maybe people and or pets like to take scenic poops?
+            Let's now take a look at the <b>tree density</b> in each neighborhood and compare it to the <b>cases of poop</b>.
+        </p>
+        <div class="maps">
+            <svg id="treevis2"></svg>
+            <svg id="poovis2"></svg>
+        </div>
+        <p id="desc">
+            Yet again, the map evidently shows a lack of any correlation between the tree density and the cases
+            of poop found in each neighborhood. However, let's again take a closer look at the top 10 neighborhoods 
+            with the highest tree density and compare it to their corresponding number of cases of poop found in the 
+            streets to be conclusive with our statement:
+        </p>
+        <div class="barcharts">
+            <svg id="treepoobar2"></svg>
+        </div>
+        <p id="desc">
+            As we can see, there isn't much of a trend to look at yet again. Though, we can notice that certain neighborhoods
+            like <b>Mission</b> and <b>South of Market</b> see more poop on the streets than there are trees, which is quite
+            a remarkable feat. We can also see that compared to neighborhoods with high average DBH, neighborhoods with high
+            tree density see more poop in the streets. Beyond these facts, we can conclude that there is yet again no correlation 
+            between the tree density and the cases of poop found in San Francisco.
+        </p>
+    </div>
+    
+    <script>
+        const downloadJSON = function (jsonObject, filename) {
+            const jsonStr = JSON.stringify(jsonObject, null, 2);
+            const blob = new Blob([jsonStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        const makeHeatMap = function (svg, path, features, data, colorRange, unit) {
+            const maxDataPoint = d3.max(Object.values(data));
+            const colorScale = d3.scaleLinear()
+                .domain([0, maxDataPoint])
+                .range(colorRange);
+
+            // Density map
+            // Draw neighborhood boundaries and fill with density color
+            svg.selectAll(".neighborhood")
+                .data(features)
+                .join("path")
+                .attr("class", "neighborhood")
+                .attr("d", path)
+                .attr("stroke", "white")
+                .attr("fill", d => {
+                    const name = d.properties.name;
+                    return colorScale(data[name] || 0);
+                });
+
+            // Add a legend
+            const legendHeight = svg.attr("height") * 0.3;
+            const legendWidth = svg.attr("width") * 0.03;
+            const legendOffset = {
+                top: svg.attr("height") * 0.03,
+                left: svg.attr("width") * 0.03
+            };
+
+            const legendSvg = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${legendOffset.left},${legendOffset.top})`);
+
+            const legendScale = d3.scaleLinear()
+                .domain([0, maxDataPoint])
+                .range([legendHeight, 0]);
+
+            const legendAxis = d3.axisRight(legendScale)
+                .tickValues(d3.range(0, maxDataPoint + 1, Math.ceil(maxDataPoint / 4)).concat([maxDataPoint]))
+                .tickFormat(d => d3.format(",.0f")(d) + ` ${unit}`);
+
+            const legendData = d3.range(legendHeight).map(d => legendScale.invert(d));
+
+            legendSvg.selectAll("rect")
+                .data(legendData)
+                .join("rect")
+                .attr("x", 0)
+                .attr("y", d => legendScale(d))
+                .attr("width", legendWidth)
+                .attr("height", 1)
+                .attr("fill", d => colorScale(d));
+
+            legendSvg.append("g")
+                .attr("transform", `translate(${legendWidth},0)`)
+                .call(legendAxis);
+
+            // Title
+            svg.append("text")
+                .attr("x", svg.attr("width") / 2)
+                .attr("y", 50)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#e0e0e0")
+                .text(`${unit.charAt(0).toUpperCase() + unit.slice(1)} in San Francisco Neighborhoods`);
+        }
+
+        const makeSideBySideBarChart = function (svg, data1, color1, unit1, data2, color2, unit2) {
+            const keys = Object.keys(data1);
+            const margin = { top: 20, right: 65, bottom: 90, left: 65 };
+            const width = svg.attr("width") - margin.left - margin.right;
+            const height = svg.attr("height") - margin.top - margin.bottom;
+
+            const g = svg.append("g")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x0 = d3.scaleBand()
+                .domain(keys)
+                .rangeRound([0, width])
+                .paddingInner(0.1);
+
+            const x1 = d3.scaleBand()
+                .domain(["data1", "data2"])
+                .rangeRound([0, x0.bandwidth()])
+                .padding(0.05);
+
+            const y1 = d3.scaleLinear()
+                .domain([0, d3.max(Object.values(data1))])
+                .nice()
+                .rangeRound([height, 0]);
+
+            const y2 = d3.scaleLinear()
+                .domain([0, d3.max(Object.values(data2))])
+                .nice()
+                .rangeRound([height, 0]);
+
+            const color = d3.scaleOrdinal()
+                .domain(["data1", "data2"])
+                .range([color1, color2]);
+
+            // Bars
+            const barXOffset = 1;
+            g.append("g")
+                .selectAll("g")
+                .data(keys)
+                .join("g")
+                .attr("transform", d => `translate(${x0(d)},0)`)
+                .selectAll("rect")
+                .data(d => [{ key: "data1", value: data1[d] }, { key: "data2", value: data2[d] }])
+                .join("rect")
+                .attr("x", d => x1(d.key) + ((d.key === "data1") ? (x1.bandwidth() / 2) + barXOffset : -barXOffset))
+                .attr("y", d => d.key === "data1" ? y1(d.value) : y2(d.value))
+                .attr("width", x1.bandwidth() / 2)
+                .attr("height", d => d.key === "data1" ? height - y1(d.value) : height - y2(d.value))
+                .attr("fill", d => color(d.key));
+
+            // x axis
+            g.append("g")
+                .attr("class", "x-axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x0))
+                .selectAll("text")
+                .attr("transform", "rotate(45)")
+                .style("text-anchor", "start");
+
+            // y axis1
+            g.append("g")
+                .attr("class", "y-axis1")
+                .call(d3.axisLeft(y1).ticks(5))
+                .selectAll("text")
+                .attr("fill", color1);
+
+            g.select(".y-axis1 path")
+                .attr("stroke", color1);
+
+            g.selectAll(".y-axis1 line")
+                .attr("stroke", color1);
+
+            // y axis1 label
+            g.append("text")
+                .attr("class", "y-axis1-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 5)
+                .attr("x", -height / 2)
+                .attr("dy", "1em")
+                .attr("text-anchor", "middle")
+                .attr("fill", color1)
+                .text(unit1);
+
+            // y axis2
+            g.append("g")
+                .attr("class", "y-axis2")
+                .attr("transform", `translate(${width},0)`)
+                .call(d3.axisRight(y2).ticks(5))
+                .selectAll("text")
+                .attr("fill", color2);
+
+            g.select(".y-axis2 path")
+                .attr("stroke", color2);
+
+            g.selectAll(".y-axis2 line")
+                .attr("stroke", color2);
+
+            // y axis2 label
+            g.append("text")
+                .attr("class", "y-axis2-label")
+                .attr("transform", "rotate(90)")
+                .attr("y", -width - margin.right + 5)
+                .attr("x", height / 2)
+                .attr("dy", "1em")
+                .attr("text-anchor", "middle")
+                .attr("fill", color2)
+                .text(unit2);
+
+            // x axis label
+            g.append("text")
+                .attr("class", "x-axis-label")
+                .attr("x", width / 2)
+                .attr("y", margin.top - 15)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#e0e0e0")
+                .text(`${unit1} and ${unit2} of Top 10 SF Neighborhoods by ${unit1}`);
+        }
+
+        const vis = async function () {
+            const treeData = await d3.csv("./Street_Tree_List-2022-01-30_FILTERED.csv");
+            const sfNeighborhoods = await d3.json("./SF-Neighborhoods.geo.json");
+            const pooData = await d3.csv("./sfpoo2020-21.csv");
+
+            // dimensions and projection
+            const width = 550;
+            const height = width;
+            const treeSvg = d3.select("svg#treevis")
+                .attr("width", width)
+                .attr("height", height);
+            const svgPoo = d3.select("svg#poovis")
+                .attr("width", width)
+                .attr("height", height);
+            const projection = d3.geoMercator().fitSize([width, height], topojson.feature(sfNeighborhoods, sfNeighborhoods.objects.SFNeighborhoods));
+            const path = d3.geoPath().projection(projection);
+            const features = topojson.feature(sfNeighborhoods, sfNeighborhoods.objects.SFNeighborhoods).features;
+
+            // tree density for each neighborhood
+            const treeDensity = await d3.json("./precomputed_tree_density.json");
+            // treeData.forEach(d => {
+            //     const neighborhood = features.find(f => d3.geoContains(f, [d.Longitude, d.Latitude]));
+            //     if (neighborhood) {
+            //         const name = neighborhood.properties.name;
+            //         if (!treeDensity[name]) {
+            //             treeDensity[name] = 0;
+            //         }
+            //         treeDensity[name]++;
+            //     }
+            // });
+            // downloadJSON(treeDensity, "precomputed_tree_density.json");
+            
+            // avg DBH for each neighborhood
+            const dbhData = await d3.json("./precomputed_avg_dbh.json");
+            // treeData.forEach(d => {
+            //     const neighborhood = features.find(f => d3.geoContains(f, [d.Longitude, d.Latitude]));
+            //     if (neighborhood) {
+            //         const name = neighborhood.properties.name;
+            //         if (!dbhData[name]) {
+            //             dbhData[name] = [];
+            //         }
+            //         dbhData[name].push(+d["DBH"]);
+            //     }
+            // });
+            // const avgDbhData = {};
+            // Object.keys(dbhData).forEach(k => {
+            //     avgDbhData[k] = d3.mean(dbhData[k]);
+            // });
+            // downloadJSON(avgDbhData, "precomputed_avg_dbh.json");
+
+            // Tree map
+            makeHeatMap(treeSvg, path, features, dbhData, ["#FAF9F6", "#004225"], "avg DBH");
+
+
+            const pooDensity = await d3.json("./precomputed_poop_density.json");
+            // pooData.forEach(d => {
+            //     const neighborhood = features.find(f => d3.geoContains(f, [d.Longitude, d.Latitude]));
+            //     if (neighborhood) {
+            //         const name = neighborhood.properties.name;
+            //         if (!pooDensity[name]) {
+            //             pooDensity[name] = 0;
+            //         }
+            //         pooDensity[name]++;
+            //     }
+            // });
+            // downloadJSON(pooDensity, "precomputed_poop_density.json");
+
+            // Poop map
+            makeHeatMap(svgPoo, path, features, pooDensity, ["#FAF9F6", "#5C4033"], "poop");
+
+            // Plot poop locations using poop.svg
+            svgPoo.selectAll("image")
+                .data(pooData)
+                .join("image")
+                .attr("xlink:href", "poop.png")
+                .attr("x", d => projection([+d.Longitude, +d.Latitude])[0])
+                .attr("y", d => projection([+d.Longitude, +d.Latitude])[1])
+                .attr("width", 5)
+                .attr("height", 5)
+                .attr("opacity", 0.15);
+
+            // Side-by-side bar chart
+            const treePooBarChart = d3.select("svg#treepoobar")
+                .attr("width", 1000)
+                .attr("height", 600);
+            
+            // get top 10 neighborhoods by avg DBH in descending order
+            const top10NbrhdsByDBH = Object.entries(dbhData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .reduce((obj, [key, value]) => {
+                    obj[key] = value;
+                    return obj;
+                }, {});
+
+            // get the corresponding poo data for the top 10 neighborhoods
+            const correspondingPooData = Object.keys(top10NbrhdsByDBH)
+                .reduce((obj, key) => {
+                    obj[key] = pooDensity[key];
+                    return obj;
+                }, {});
+            
+            makeSideBySideBarChart(treePooBarChart, top10NbrhdsByDBH, "#AEDCAE", "Avg DBH", correspondingPooData, "#A08679", "Cases of Poop");
+
+
+
+            // vis2 using tree density instead of avg DBH
+            const treeSvg2 = d3.select("svg#treevis2")
+                .attr("width", width)
+                .attr("height", height);
+
+            makeHeatMap(treeSvg2, path, features, treeDensity, ["#FAF9F6", "#004225"], "trees");
+
+            const svgPoo2 = d3.select("svg#poovis2")
+                .attr("width", width)
+                .attr("height", height);
+
+            makeHeatMap(svgPoo2, path, features, pooDensity, ["#FAF9F6", "#5C4033"], "poop");
+
+            svgPoo2.selectAll("image")
+                .data(pooData)
+                .join("image")
+                .attr("xlink:href", "poop.png")
+                .attr("x", d => projection([+d.Longitude, +d.Latitude])[0])
+                .attr("y", d => projection([+d.Longitude, +d.Latitude])[1])
+                .attr("width", 5)
+                .attr("height", 5)
+                .attr("opacity", 0.15);
+
+            const treePooBarChart2 = d3.select("svg#treepoobar2")
+                .attr("width", 1000)
+                .attr("height", 600);
+
+            const top10NbrhdsByTreeDensity = Object.entries(treeDensity)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .reduce((obj, [key, value]) => {
+                    obj[key] = value;
+                    return obj;
+                }, {});
+
+            const correspondingPooData2 = Object.keys(top10NbrhdsByTreeDensity)
+                .reduce((obj, key) => {
+                    obj[key] = pooDensity[key];
+                    return obj;
+                }, {});
+
+            makeSideBySideBarChart(treePooBarChart2, top10NbrhdsByTreeDensity, "#AEDCAE", "Tree Density", correspondingPooData2, "#A08679", "Cases of Poop");
+        };
+        vis();
+    </script>
+</body>
+
+</html>
