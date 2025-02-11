@@ -152,7 +152,6 @@
                 .range(colorRange);
 
             // Density map
-            // Draw neighborhood boundaries and fill with density color
             svg.selectAll(".neighborhood")
                 .data(features)
                 .join("path")
@@ -317,9 +316,9 @@
                 .attr("fill", color2)
                 .text(unit2);
 
-            // x axis label
+            // Title
             g.append("text")
-                .attr("class", "x-axis-label")
+                .attr("class", "title")
                 .attr("x", width / 2)
                 .attr("y", margin.top - 15)
                 .attr("text-anchor", "middle")
